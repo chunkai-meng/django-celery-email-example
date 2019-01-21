@@ -1,0 +1,71 @@
+version: '3.6'
+services:
+
+  celery:
+    build: 
+        context: .
+        dockerfile: Dockerfile
+    container_name: celery
+    restart: always
+    environment:
+      DJANGO_SETTINGS_MODULE: proj.settings
+    command: 
+      - /bin/sh
+      - -c
+      - |
+        uwsgi -d  /var/log/uwsgi_demoapp.log /home/proj/uwsgi.ini
+        celery -A proj worker -l info
+    networks:
+      - backend
+      - redis-net
+    ports:
+      - "8080:8888"
+    volumes:
+      - ./proj:/home/proj
+    depends_on:
+      - redis
+    tty: true
+
+
+  dev:
+    build: 
+        context: .
+        dockerfile: Dockerfile
+    container_name: celery-dev
+    restart: always
+    environment:
+      DJANGO_SETTINGS_MODULE: proj.settings
+    command: 
+      - /bin/sh
+      - -c
+      - |
+        nohup python3 manage.py runserver 0.0.0.0:8888 &
+        celery -A proj worker -l info
+    networks:
+      - redis-net
+    ports:
+      - "8080:8888"
+    volumes:
+      - ./proj:/home/proj
+    depends_on:
+      - redis
+    tty: true
+
+  redis:
+    image: 'redis'
+    container_name: celery-redis
+    restart: always
+    networks:
+    - redis-net
+    volumes:
+    - 'celery-redis:/data'
+
+volumes:
+  celery-redis:
+
+# apicontainer is the external network that want to use Celery Servcie
+networks:
+  redis-net:
+  backend:
+    external:
+      name: api-net
